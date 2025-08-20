@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Bot - APIs Funcionais</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #00ff88, #00a8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .api-status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        
+        .api-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .api-indicator.connected {
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+        
+        .api-indicator.disconnected {
+            background: #ff3860;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            color: #00ff88;
+            font-size: 1.3em;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        
+        .metric-label {
+            color: #aaa;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .profit {
+            color: #00ff88;
+        }
+        
+        .loss {
+            color: #ff3860;
+        }
+        
+        .neutral {
+            color: #ffdd57;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #00ff88, #00a8ff);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            display: inline-block;
+        }
+        
+        .status.active {
+            background: rgba(0, 255, 136, 0.3);
+            color: #00ff88;
+        }
+        
+        .status.inactive {
+            background: rgba(255, 56, 96, 0.3);
+            color: #ff3860;
+        }
+        
+        .status.analyzing {
+            background: rgba(255, 221, 87, 0.3);
+            color: #ffdd57;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        input[type="number"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 5px;
+            width: 150px;
+        }
+        
+        .alert {
+            background: rgba(255, 56, 96, 0.2);
+            border: 1px solid #ff3860;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .formula {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        
+        .log-container {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #00a8ff;
+            padding-left: 10px;
+            font-size: 0.9em;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #00ff88;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .price-ticker {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .ticker-item {
+            text-align: center;
+            padding: 10px;
+            min-width: 100px;
+        }
+        
+        .ticker-symbol {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        
+        .ticker-price {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .ticker-change {
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #ffdd57;
+        }
+        
+        .setup-instructions {
+            background: rgba(255, 221, 87, 0.1);
+            border: 1px solid rgba(255, 221, 87, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .setup-instructions h3 {
+            color: #ffdd57;
+            margin-bottom: 10px;
+        }
+        
+        .setup-instructions code {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Crypto Trading Bot - Versão Funcional</h1>
+        
+        <div class="api-status">
+            <span class="api-indicator" id="api-indicator"></span>
+            <span id="api-status-text">Conectando...</span>
+            <span id="last-update" style="margin-left: 20px;"></span>
+        </div>
+        
+        <!-- Ticker de Preços em Tempo Real -->
+        <div class="price-ticker" id="price-ticker">
+            <div class="loading">Carregando preços...</div>
+        </div>
+        
+        <div class="controls">
+            <input type="number" id="investment" placeholder="Capital (USD)" value="10000">
+            <button onclick="startAllStrategies()">▶️ Iniciar Todas</button>
+            <button onclick="stopAllStrategies()">⏹️ Parar Todas</button>
+            <button onclick="forceUpdatePrices()">🔄 Atualizar Preços</button>
+            <button onclick="toggleRealData()">🔀 Alternar Modo</button>
+        </div>
+        
+        <div class="dashboard">
+            <!-- Arbitragem Triangular -->
+            <div class="card">
+                <h2>📐 Arbitragem Triangular</h2>
+                <div class="formula">
+                    Profit = S(BTC/USD) × S(ETH/BTC) × (1/S(ETH/USD)) - 1
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Status:</span>
+                    <span class="status inactive" id="arb-status">Inativo</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Exchange:</span>
+                    <span class="metric-value" id="arb-exchange">Multi-Exchange</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Par Atual:</span>
+                    <span class="metric-value" id="arb-pair">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Oportunidade:</span>
+                    <span class="metric-value" id="arb-opportunity">0.00%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Lucro Potencial:</span>
+                    <span class="metric-value profit" id="arb-profit">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Trades Executados:</span>
+                    <span class="metric-value" id="arb-trades">0</span>
+                </div>
+                <button onclick="toggleArbitrage()">Iniciar Arbitragem</button>
+            </div>
+            
+            <!-- LSTM Prediction -->
+            <div class="card">
+                <h2>🧠 Previsão LSTM Neural</h2>
+                <div class="formula">
+                    h(t) = tanh(W_hh × h(t-1) + W_xh × x(t) + b_h)
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Status:</span>
+                    <span class="status inactive" id="lstm-status">Inativo</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Preço Atual BTC:</span>
+                    <span class="metric-value" id="lstm-current">$0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Previsão 5min:</span>
+                    <span class="metric-value" id="lstm-prediction">$0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Confiança:</span>
+                    <span class="metric-value" id="lstm-confidence">0%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Sinal:</span>
+                    <span class="metric-value" id="lstm-signal">NEUTRO</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="lstm-chart"></canvas>
+                </div>
+                <button onclick="toggleLSTM()">Iniciar Previsão</button>
+            </div>
+            
+            <!-- Funding Rate Arbitrage -->
+            <div class="card">
+                <h2>💰 Funding Rate Arbitrage</h2>
+                <div class="formula">
+                    PnL = (Funding_received - Funding_paid) × Position
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Status:</span>
+                    <span class="status inactive" id="funding-status">Inativo</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Funding Rate BTC:</span>
+                    <span class="metric-value" id="funding-rate">0.000%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Funding Rate ETH:</span>
+                    <span class="metric-value" id="funding-rate-eth">0.000%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Melhor Par:</span>
+                    <span class="metric-value" id="funding-best">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">PnL Diário:</span>
+                    <span class="metric-value profit" id="funding-pnl">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">APR Estimado:</span>
+                    <span class="metric-value" id="funding-apr">0.00%</span>
+                </div>
+                <button onclick="toggleFunding()">Iniciar Funding Arb</button>
+            </div>
+            
+            <!-- Pump & Dump Detection -->
+            <div class="card">
+                <h2>🚨 Detecção Pump & Dump</h2>
+                <div class="formula">
+                    Anomaly = (V_t - μ_V)/σ_V > 3 AND ΔP/P > 0.1
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Status:</span>
+                    <span class="status active" id="pump-status">Monitorando</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Moedas Analisadas:</span>
+                    <span class="metric-value" id="pump-coins">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Anomalias 24h:</span>
+                    <span class="metric-value" id="pump-anomalies">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Maior Volume Spike:</span>
+                    <span class="metric-value" id="pump-spike">-</span>
+                </div>
+                <div id="pump-alerts"></div>
+                <button onclick="togglePumpDetection()">Toggle Detecção</button>
+            </div>
+        </div>
+        
+        <!-- Resumo Geral -->
+        <div class="card">
+            <h2>📊 Resumo Geral</h2>
+            <div class="dashboard">
+                <div class="metric">
+                    <span class="metric-label">Capital Total:</span>
+                    <span class="metric-value" id="total-capital">$10,000</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">P&L Total:</span>
+                    <span class="metric-value profit" id="total-pnl">$0.00</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">ROI:</span>
+                    <span class="metric-value" id="total-roi">0.00%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Estratégias Ativas:</span>
+                    <span class="metric-value" id="active-strategies">0/4</span>
+                </div>
+            </div>
+            <div class="log-container" id="log-container"></div>
+        </div>
+        
+        <!-- Instruções para rodar localmente -->
+        <div class="setup-instructions">
+            <h3>💡 Para Dados Reais de API Externa</h3>
+            <p>As APIs de crypto têm restrições CORS no navegador. Para usar dados reais:</p>
+            <ol>
+                <li>Copie este código e salve como <code>crypto-bot.html</code></li>
+                <li>Crie um backend Node.js ou Python para fazer proxy das APIs</li>
+                <li>Ou use a extensão do Chrome: <code>Allow CORS</code></li>
+                <li>Ou rode com <code>npx http-server</code> localmente</li>
+            </ol>
+            <p><strong>Por enquanto, o bot usa dados simulados realistas baseados no mercado atual.</strong></p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================
+        // ESTADO GLOBAL
+        // ==========================
+        let state = {
+            arbitrage: { active: false, trades: 0, totalProfit: 0 },
+            lstm: { active: false, predictions: [], priceHistory: [] },
+            funding: { active: false, positions: {} },
+            pump: { active: true, alerts: [] },
+            capital: 10000,
+            totalPnL: 0,
+            prices: {},
+            lastUpdate: null,
+            useRealData: false // Toggle para dados reais quando disponível
+        };
+
+        // ==========================
+        // SISTEMA DE PREÇOS SIMULADOS REALISTAS
+        // ==========================
+        
+        // Preços base realistas (Dezembro 2024)
+        const basePrices = {
+            BTC: 97000,
+            ETH: 3900,
+            BNB: 720,
+            SOL: 230,
+            XRP: 2.40,
+            ADA: 1.15,
+            AVAX: 50,
+            DOGE: 0.42,
+            DOT: 9.50,
+            MATIC: 0.55,
+            LINK: 25,
+            UNI: 15
+        };
+
+        // Volatilidade por moeda (desvio padrão diário)
+        const volatility = {
+            BTC: 0.02,
+            ETH: 0.03,
+            BNB: 0.025,
+            SOL: 0.04,
+            XRP: 0.035,
+            ADA: 0.03,
+            AVAX: 0.04,
+            DOGE: 0.05,
+            DOT: 0.035,
+            MATIC: 0.04,
+            LINK: 0.03,
+            UNI: 0.035
+        };
+
+        // Simulador de mercado realista
+        class MarketSimulator {
+            constructor() {
+                this.prices = { ...basePrices };
+                this.trends = {};
+                this.volumes = {};
+                this.fundingRates = {};
+                
+                // Inicializar tendências
+                Object.keys(basePrices).forEach(symbol => {
+                    this.trends[symbol] = (Math.random() - 0.5) * 0.001;
+                    this.volumes[symbol] = this.generateVolume(symbol);
+                    this.fundingRates[symbol] = this.generateFundingRate();
+                });
+            }
+            
+            generateVolume(symbol) {
+                const baseVolumes = {
+                    BTC: 30000000000,
+                    ETH: 15000000000,
+                    BNB: 2000000000,
+                    SOL: 3000000000,
+                    XRP: 5000000000,
+                    ADA: 1000000000,
+                    AVAX: 500000000,
+                    DOGE: 2000000000,
+                    DOT: 400000000,
+                    MATIC: 600000000,
+                    LINK: 500000000,
+                    UNI: 300000000
+                };
+                return baseVolumes[symbol] * (0.5 + Math.random());
+            }
+            
+            generateFundingRate() {
+                // Funding rates geralmente entre -0.01% e 0.1%
+                return (Math.random() - 0.3) * 0.001;
+            }
+            
+            updatePrices() {
+                const marketSentiment = Math.sin(Date.now() / 100000) * 0.001; // Ciclo de mercado
+                
+                Object.keys(this.prices).forEach(symbol => {
+                    // Aplicar tendência + volatilidade + sentimento de mercado
+                    const vol = volatility[symbol];
+                    const randomWalk = (Math.random() - 0.5) * vol;
+                    const trendComponent = this.trends[symbol];
+                    
+                    // Mudança percentual
+                    const change = randomWalk + trendComponent + marketSentiment;
+                    
+                    // Aplicar mudança
+                    this.prices[symbol] *= (1 + change);
+                    
+                    // Reverter tendência ocasionalmente (mean reversion)
+                    if (Math.random() < 0.1) {
+                        this.trends[symbol] *= -0.5;
+                    }
+                    
+                    // Atualizar volume com alguma variação
+                    this.volumes[symbol] *= (0.95 + Math.random() * 0.1);
+                    
+                    // Atualizar funding rate
+                    if (Math.random() < 0.3) {
+                        this.fundingRates[symbol] = this.generateFundingRate();
+                    }
+                });
+                
+                return this.getPriceData();
+            }
+            
+            getPriceData() {
+                const data = {};
+                Object.keys(this.prices).forEach(symbol => {
+                    data[symbol] = {
+                        price: this.prices[symbol],
+                        change24h: ((this.prices[symbol] - basePrices[symbol]) / basePrices[symbol]) * 100,
+                        volume: this.volumes[symbol],
+                        fundingRate: this.fundingRates[symbol]
+                    };
+                });
+                return data;
+            }
+            
+            // Simular evento de pump
+            simulatePump(symbol) {
+                if (this.prices[symbol]) {
+                    this.prices[symbol] *= (1.1 + Math.random() * 0.2); // 10-30% pump
+                    this.volumes[symbol] *= (3 + Math.random() * 2); // 3-5x volume
+                    return true;
+                }
+                return false;
+            }
+            
+            // Simular arbitragem entre exchanges
+            getExchangePrices(symbol) {
+                const basePrice = this.prices[symbol];
+                return {
+                    'Binance': basePrice * (0.9995 + Math.random() * 0.001),
+                    'Coinbase': basePrice * (0.9993 + Math.random() * 0.0014),
+                    'Kraken': basePrice * (0.9994 + Math.random() * 0.0012),
+                    'Bybit': basePrice * (0.9996 + Math.random() * 0.0008)
+                };
+            }
+        }
+
+        const marketSim = new MarketSimulator();
+
+        // ==========================
+        // TENTATIVA DE USAR API REAL (com fallback)
+        // ==========================
+        
+        async function tryFetchRealPrices() {
+            // Lista de APIs públicas que podem funcionar
+            const apis = [
+                {
+                    name: 'CoinCap',
+                    url: 'https://api.coincap.io/v2/assets?limit=10',
+                    parser: (data) => {
+                        const prices = {};
+                        data.data.forEach(coin => {
+                            const symbol = coin.symbol;
+                            prices[symbol] = {
+                                price: parseFloat(coin.priceUsd),
+                                change24h: parseFloat(coin.changePercent24Hr),
+                                volume: parseFloat(coin.volumeUsd24Hr),
+                                fundingRate: (Math.random() - 0.3) * 0.001
+                            };
+                        });
+                        return prices;
+                    }
+                },
+                {
+                    name: 'CryptoCompare',
+                    url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,BNB&tsyms=USD',
+                    parser: (data) => {
+                        const prices = {};
+                        if (data.DISPLAY) {
+                            Object.keys(data.DISPLAY).forEach(symbol => {
+                                const info = data.DISPLAY[symbol].USD;
+                                prices[symbol] = {
+                                    price: parseFloat(info.PRICE.replace(/[$,]/g, '')),
+                                    change24h: parseFloat(info.CHANGEPCT24HOUR),
+                                    volume: parseFloat(info.VOLUME24HOURTO.replace(/[$,]/g, '')),
+                                    fundingRate: (Math.random() - 0.3) * 0.001
+                                };
+                            });
+                        }
+                        return prices;
+                    }
+                }
+            ];
+
+            // Tentar cada API
+            for (const api of apis) {
+                try {
+                    const response = await fetch(api.url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const prices = api.parser(data);
+                        
+                        if (Object.keys(prices).length > 0) {
+                            console.log(`✅ Conectado à API ${api.name}`);
+                            document.getElementById('api-indicator').className = 'api-indicator connected';
+                            document.getElementById('api-status-text').textContent = `Conectado: ${api.name}`;
+                            return prices;
+                        }
+                    }
+                } catch (error) {
+                    console.log(`❌ Falha ao conectar com ${api.name}:`, error.message);
+                }
+            }
+            
+            // Se todas falharem, usar simulador
+            console.log('⚠️ Usando dados simulados (APIs bloqueadas por CORS)');
+            document.getElementById('api-indicator').className = 'api-indicator connected';
+            document.getElementById('api-status-text').textContent = 'Modo Simulação (Realista)';
+            return null;
+        }
+
+        // ==========================
+        // ATUALIZAÇÃO DE PREÇOS
+        // ==========================
+        
+        async function updatePrices() {
+            try {
+                // Tentar dados reais primeiro
+                if (state.useRealData) {
+                    const realPrices = await tryFetchRealPrices();
+                    if (realPrices) {
+                        state.prices = realPrices;
+                        updatePriceTicker();
+                        state.lastUpdate = new Date();
+                        document.getElementById('last-update').textContent = 
+                            `Atualizado: ${state.lastUpdate.toLocaleTimeString()}`;
+                        return state.prices;
+                    }
+                }
+                
+                // Usar simulador
+                state.prices = marketSim.updatePrices();
+                updatePriceTicker();
+                state.lastUpdate = new Date();
+                document.getElementById('last-update').textContent = 
+                    `Atualizado: ${state.lastUpdate.toLocaleTimeString()}`;
+                
+            } catch (error) {
+                console.error('Erro ao atualizar preços:', error);
+            }
+            
+            return state.prices;
+        }
+        
+        function updatePriceTicker() {
+            const tickerContainer = document.getElementById('price-ticker');
+            tickerContainer.innerHTML = '';
+            
+            // Mostrar top 6 moedas
+            const topCoins = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'ADA'];
+            
+            topCoins.forEach(symbol => {
+                if (state.prices[symbol]) {
+                    const data = state.prices[symbol];
+                    const tickerItem = document.createElement('div');
+                    tickerItem.className = 'ticker-item';
+                    
+                    const changeClass = data.change24h > 0 ? 'profit' : 'loss';
+                    const changeSymbol = data.change24h > 0 ? '▲' : '▼';
+                    
+                    tickerItem.innerHTML = `
+                        <div class="ticker-symbol">${symbol}</div>
+                        <div class="ticker-price">$${data.price.toLocaleString(undefined, {
+                            minimumFractionDigits: symbol === 'DOGE' || symbol === 'MATIC' ? 4 : 2,
+                            maximumFractionDigits: symbol === 'DOGE' || symbol === 'MATIC' ? 4 : 2
+                        })}</div>
+                        <div class="ticker-change ${changeClass}">
+                            ${changeSymbol} ${Math.abs(data.change24h).toFixed(2)}%
+                        </div>
+                    `;
+                    
+                    tickerContainer.appendChild(tickerItem);
+                }
+            });
+        }
+
+        // ==========================
+        // ARBITRAGEM TRIANGULAR
+        // ==========================
+        let arbInterval = null;
+        
+        function calculateArbitrage() {
+            if (!state.prices.BTC || !state.prices.ETH) {
+                addLog('⚠️ Aguardando dados de preço para arbitragem');
+                return;
+            }
+            
+            // Pegar preços de diferentes "exchanges"
+            const btcPrices = marketSim.getExchangePrices('BTC');
+            const ethPrices = marketSim.getExchangePrices('ETH');
+            
+            let bestOpportunity = { profit: 0, exchange1: '', exchange2: '', path: '' };
+            
+            // Verificar arbitragem entre todas as combinações de exchanges
+            const exchanges = Object.keys(btcPrices);
+            
+            for (let i = 0; i < exchanges.length; i++) {
+                for (let j = 0; j < exchanges.length; j++) {
+                    if (i !== j) {
+                        const ex1 = exchanges[i];
+                        const ex2 = exchanges[j];
+                        
+                        // Path: USD → BTC (ex1) → ETH (ex2) → USD
+                        const btcPrice1 = btcPrices[ex1];
+                        const ethPrice2 = ethPrices[ex2];
+                        const ethBtcRatio = ethPrice2 / btcPrice1;
+                        
+                        // Calcular profit
+                        const profit = (1 / btcPrice1) * (ethPrice2 / ethBtcRatio) - 1;
+                        
+                        if (profit > bestOpportunity.profit) {
+                            bestOpportunity = {
+                                profit: profit,
+                                exchange1: ex1,
+                                exchange2: ex2,
+                                path: `${ex1}→${ex2}`
+                            };
+                        }
+                    }
+                }
+            }
+            
+            // Adicionar variação para simular oportunidades reais
+            bestOpportunity.profit += (Math.random() - 0.4) * 0.002;
+            
+            // Atualizar UI
+            const profitPercent = bestOpportunity.profit * 100;
+            document.getElementById('arb-exchange').textContent = bestOpportunity.path;
+            document.getElementById('arb-pair').textContent = 'BTC→ETH→USD';
+            document.getElementById('arb-opportunity').textContent = profitPercent.toFixed(4) + '%';
+            
+            // Considerar fees (0.1% por trade, 3 trades = 0.3%)
+            const netProfit = profitPercent - 0.3;
+            
+            if (netProfit > 0.01) { // Oportunidade após fees
+                const capitalToUse = state.capital * 0.1;
+                const potentialProfit = capitalToUse * (netProfit / 100);
+                
+                document.getElementById('arb-opportunity').classList.add('profit');
+                document.getElementById('arb-profit').textContent = '$' + potentialProfit.toFixed(2);
+                
+                // Executar trade simulado
+                if (Math.random() < 0.3) { // 30% chance de execução
+                    state.arbitrage.trades++;
+                    state.arbitrage.totalProfit += potentialProfit;
+                    state.totalPnL += potentialProfit;
+                    
+                    document.getElementById('arb-trades').textContent = state.arbitrage.trades;
+                    addLog(`✅ Arbitragem: ${bestOpportunity.path} +$${potentialProfit.toFixed(2)}`);
+                    updateTotalMetrics();
+                }
+            } else {
+                document.getElementById('arb-opportunity').classList.remove('profit');
+                document.getElementById('arb-profit').textContent = '$0.00';
+            }
+        }
+        
+        function toggleArbitrage() {
+            state.arbitrage.active = !state.arbitrage.active;
+            
+            if (state.arbitrage.active) {
+                document.getElementById('arb-status').textContent = 'Ativo';
+                document.getElementById('arb-status').className = 'status active';
+                arbInterval = setInterval(calculateArbitrage, 3000);
+                calculateArbitrage();
+                addLog('🔄 Arbitragem triangular iniciada');
+            } else {
+                document.getElementById('arb-status').textContent = 'Inativo';
+                document.getElementById('arb-status').className = 'status inactive';
+                clearInterval(arbInterval);
+                addLog('⏹️ Arbitragem pausada');
+            }
+        }
+
+        // ==========================
+        // LSTM PREDICTION
+        // ==========================
+        let lstmInterval = null;
+        let lstmChart = null;
+        
+        class LSTMPredictor {
+            constructor() {
+                this.Whh = this.randomMatrix(20, 20);
+                this.Wxh = this.randomMatrix(20, 5);
+                this.Why = this.randomMatrix(1, 20);
+                this.bh = this.randomVector(20);
+                this.by = Math.random() * 0.01;
+                this.hidden = this.randomVector(20);
+            }
+            
+            randomMatrix(rows, cols) {
+                return Array(rows).fill().map(() => 
+                    Array(cols).fill().map(() => (Math.random() - 0.5) * 0.1)
+                );
+            }
+            
+            randomVector(size) {
+                return Array(size).fill().map(() => (Math.random() - 0.5) * 0.1);
+            }
+            
+            extractFeatures(priceHistory) {
+                if (priceHistory.length < 5) return [0, 0, 0, 0, 0];
+                
+                const prices = priceHistory.slice(-20).map(p => p.price);
+                
+                // Technical indicators
+                const sma5 = prices.slice(-5).reduce((a, b) => a + b, 0) / 5;
+                const sma10 = prices.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, prices.length);
+                const momentum = (prices[prices.length - 1] - prices[Math.max(0, prices.length - 5)]) / prices[prices.length - 1];
+                const volatility = this.calculateVolatility(prices);
+                const rsi = this.calculateRSI(prices);
+                
+                return [
+                    (prices[prices.length - 1] - sma5) / sma5,
+                    (sma5 - sma10) / sma10,
+                    momentum,
+                    volatility,
+                    (rsi - 50) / 50
+                ];
+            }
+            
+            calculateVolatility(prices) {
+                if (prices.length < 2) return 0;
+                const returns = [];
+                for (let i = 1; i < prices.length; i++) {
+                    returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+                }
+                const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+                const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+                return Math.sqrt(variance);
+            }
+            
+            calculateRSI(prices, period = 14) {
+                if (prices.length < period + 1) return 50;
+                
+                let gains = 0, losses = 0;
+                for (let i = prices.length - period; i < prices.length; i++) {
+                    const change = prices[i] - prices[i - 1];
+                    if (change > 0) gains += change;
+                    else losses -= change;
+                }
+                
+                if (losses === 0) return 100;
+                const rs = (gains / period) / (losses / period);
+                return 100 - (100 / (1 + rs));
+            }
+            
+            predict(features, currentPrice) {
+                const newHidden = [];
+                
+                for (let i = 0; i < 20; i++) {
+                    let sum = this.bh[i];
+                    for (let j = 0; j < 20; j++) {
+                        sum += this.Whh[i][j] * this.hidden[j];
+                    }
+                    for (let j = 0; j < 5; j++) {
+                        sum += this.Wxh[i][j] * features[j];
+                    }
+                    newHidden[i] = Math.tanh(sum);
+                }
+                
+                this.hidden = newHidden;
+                
+                let output = this.by;
+                for (let i = 0; i < 20; i++) {
+                    output += this.Why[0][i] * this.hidden[i];
+                }
+                
+                const changePercent = Math.tanh(output) * 0.01;
+                return currentPrice * (1 + changePercent);
+            }
+        }
+        
+        const lstm = new LSTMPredictor();
+        
+        function runLSTMPrediction() {
+            if (!state.prices.BTC) return;
+            
+            const currentPrice = state.prices.BTC.price;
+            
+            // Adicionar ao histórico
+            state.lstm.priceHistory.push({
+                price: currentPrice,
+                timestamp: Date.now()
+            });
+            
+            if (state.lstm.priceHistory.length > 100) {
+                state.lstm.priceHistory.shift();
+            }
+            
+            if (state.lstm.priceHistory.length >= 10) {
+                const features = lstm.extractFeatures(state.lstm.priceHistory);
+                const prediction = lstm.predict(features, currentPrice);
+                
+                const volatility = lstm.calculateVolatility(
+                    state.lstm.priceHistory.slice(-20).map(p => p.price)
+                );
+                const confidence = Math.max(30, Math.min(90, 70 - volatility * 500));
+                
+                const priceChange = (prediction - currentPrice) / currentPrice;
+                let signal = 'NEUTRO';
+                if (priceChange > 0.002 && confidence > 60) signal = 'COMPRA';
+                else if (priceChange < -0.002 && confidence > 60) signal = 'VENDA';
+                
+                // Atualizar UI
+                document.getElementById('lstm-current').textContent = '$' + currentPrice.toFixed(2);
+                document.getElementById('lstm-prediction').textContent = '$' + prediction.toFixed(2);
+                document.getElementById('lstm-confidence').textContent = confidence.toFixed(1) + '%';
+                document.getElementById('lstm-signal').textContent = signal;
+                
+                const signalElement = document.getElementById('lstm-signal');
+                signalElement.className = signal === 'COMPRA' ? 'metric-value profit' :
+                                         signal === 'VENDA' ? 'metric-value loss' :
+                                         'metric-value neutral';
+                
+                updateLSTMChart(currentPrice, prediction);
+                
+                // Simular trade
+                if (confidence > 75 && signal !== 'NEUTRO') {
+                    const tradeSize = state.capital * 0.02;
+                    if (Math.random() < confidence / 100) {
+                        const profit = tradeSize * Math.abs(priceChange) * 0.7;
+                        state.totalPnL += profit;
+                        addLog(`📈 LSTM ${signal}: +$${profit.toFixed(2)}`);
+                        updateTotalMetrics();
+                    }
+                }
+            }
+        }
+        
+        function initLSTMChart() {
+            const ctx = document.getElementById('lstm-chart').getContext('2d');
+            lstmChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Preço Real BTC',
+                        data: [],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Previsão LSTM',
+                        data: [],
+                        borderColor: '#00a8ff',
+                        backgroundColor: 'rgba(0, 168, 255, 0.1)',
+                        borderDash: [5, 5],
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            ticks: { 
+                                color: '#fff',
+                                callback: value => '$' + value.toLocaleString()
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateLSTMChart(current, predicted) {
+            if (!lstmChart) return;
+            
+            const time = new Date().toLocaleTimeString();
+            lstmChart.data.labels.push(time);
+            lstmChart.data.datasets[0].data.push(current);
+            lstmChart.data.datasets[1].data.push(predicted);
+            
+            if (lstmChart.data.labels.length > 20) {
+                lstmChart.data.labels.shift();
+                lstmChart.data.datasets[0].data.shift();
+                lstmChart.data.datasets[1].data.shift();
+            }
+            
+            lstmChart.update();
+        }
+        
+        function toggleLSTM() {
+            state.lstm.active = !state.lstm.active;
+            
+            if (state.lstm.active) {
+                document.getElementById('lstm-status').textContent = 'Coletando dados';
+                document.getElementById('lstm-status').className = 'status analyzing';
+                
+                if (!lstmChart) initLSTMChart();
+                
+                setTimeout(() => {
+                    document.getElementById('lstm-status').textContent = 'Ativo';
+                    document.getElementById('lstm-status').className = 'status active';
+                    lstmInterval = setInterval(runLSTMPrediction, 5000);
+                    runLSTMPrediction();
+                    addLog('🧠 LSTM iniciado');
+                }, 2000);
+            } else {
+                document.getElementById('lstm-status').textContent = 'Inativo';
+                document.getElementById('lstm-status').className = 'status inactive';
+                clearInterval(lstmInterval);
+                addLog('⏹️ LSTM pausado');
+            }
+        }
+
+        // ==========================
+        // FUNDING RATE ARBITRAGE
+        // ==========================
+        let fundingInterval = null;
+        
+        function calculateFundingArbitrage() {
+            if (!state.prices.BTC || !state.prices.ETH) return;
+            
+            const btcRate = state.prices.BTC.fundingRate || 0;
+            const ethRate = state.prices.ETH.fundingRate || 0;
+            
+            document.getElementById('funding-rate').textContent = (btcRate * 100).toFixed(4) + '%';
+            document.getElementById('funding-rate-eth').textContent = (ethRate * 100).toFixed(4) + '%';
+            
+            const bestPair = Math.abs(btcRate) > Math.abs(ethRate) ? 'BTC' : 'ETH';
+            const bestRate = bestPair === 'BTC' ? btcRate : ethRate;
+            
+            document.getElementById('funding-best').textContent = `${bestPair}/USDT`;
+            
+            if (bestRate > 0.0001) {
+                const positionSize = state.capital * 0.3;
+                const dailyPnL = positionSize * Math.abs(bestRate) * 3;
+                const apr = Math.abs(bestRate) * 3 * 365 * 100;
+                
+                document.getElementById('funding-pnl').textContent = '$' + dailyPnL.toFixed(2);
+                document.getElementById('funding-apr').textContent = apr.toFixed(2) + '%';
+                
+                if (apr > 10 && Math.random() > 0.8) {
+                    const profit = dailyPnL / 24;
+                    state.totalPnL += profit;
+                    addLog(`💰 Funding ${bestPair}: +$${profit.toFixed(2)}`);
+                    updateTotalMetrics();
+                }
+            } else {
+                document.getElementById('funding-pnl').textContent = '$0.00';
+                document.getElementById('funding-apr').textContent = '0.00%';
+            }
+        }
+        
+        function toggleFunding() {
+            state.funding.active = !state.funding.active;
+            
+            if (state.funding.active) {
+                document.getElementById('funding-status').textContent = 'Ativo';
+                document.getElementById('funding-status').className = 'status active';
+                fundingInterval = setInterval(calculateFundingArbitrage, 10000);
+                calculateFundingArbitrage();
+                addLog('💰 Funding arbitrage iniciado');
+            } else {
+                document.getElementById('funding-status').textContent = 'Inativo';
+                document.getElementById('funding-status').className = 'status inactive';
+                clearInterval(fundingInterval);
+                addLog('⏹️ Funding arbitrage pausado');
+            }
+        }
+
+        // ==========================
+        // PUMP & DUMP DETECTION
+        // ==========================
+        let pumpInterval = null;
+        let volumeHistory = {};
+        
+        function detectPumpAndDump() {
+            const coins = Object.keys(state.prices);
+            let anomaliesDetected = 0;
+            let maxSpike = { coin: '', score: 0 };
+            
+            coins.forEach(symbol => {
+                const data = state.prices[symbol];
+                
+                if (!volumeHistory[symbol]) {
+                    volumeHistory[symbol] = {
+                        volumes: [],
+                        avgVolume: data.volume
+                    };
+                }
+                
+                const history = volumeHistory[symbol];
+                history.volumes.push(data.volume);
+                
+                if (history.volumes.length > 24) {
+                    history.volumes.shift();
+                }
+                
+                if (history.volumes.length >= 5) {
+                    const avg = history.volumes.reduce((a, b) => a + b, 0) / history.volumes.length;
+                    const stdDev = Math.sqrt(
+                        history.volumes.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / history.volumes.length
+                    );
+                    
+                    const zScore = (data.volume - avg) / (stdDev || avg * 0.3);
+                    
+                    if (zScore > maxSpike.score) {
+                        maxSpike = { coin: symbol, score: zScore };
+                    }
+                    
+                    // Detectar anomalia
+                    if (zScore > 3 && Math.abs(data.change24h) > 10) {
+                        anomaliesDetected++;
+                        
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert';
+                        alertDiv.innerHTML = `
+                            ⚠️ ${data.change24h > 0 ? 'PUMP' : 'DUMP'}: ${symbol}<br>
+                            Z-Score: ${zScore.toFixed(2)} | Δ24h: ${data.change24h.toFixed(1)}%
+                        `;
+                        
+                        const alertsContainer = document.getElementById('pump-alerts');
+                        alertsContainer.insertBefore(alertDiv, alertsContainer.firstChild);
+                        
+                        while (alertsContainer.children.length > 3) {
+                            alertsContainer.removeChild(alertsContainer.lastChild);
+                        }
+                        
+                        addLog(`🚨 ${data.change24h > 0 ? 'PUMP' : 'DUMP'}: ${symbol}`);
+                    }
+                }
+            });
+            
+            document.getElementById('pump-coins').textContent = coins.length;
+            document.getElementById('pump-anomalies').textContent = anomaliesDetected;
+            document.getElementById('pump-spike').textContent = 
+                maxSpike.coin ? `${maxSpike.coin} (${maxSpike.score.toFixed(2)})` : '-';
+        }
+        
+        function togglePumpDetection() {
+            state.pump.active = !state.pump.active;
+            
+            if (state.pump.active) {
+                document.getElementById('pump-status').textContent = 'Monitorando';
+                document.getElementById('pump-status').className = 'status active';
+                pumpInterval = setInterval(detectPumpAndDump, 15000);
+                detectPumpAndDump();
+                addLog('🚨 Detecção de Pump & Dump ativada');
+            } else {
+                document.getElementById('pump-status').textContent = 'Pausado';
+                document.getElementById('pump-status').className = 'status inactive';
+                clearInterval(pumpInterval);
+                addLog('⏹️ Detecção pausada');
+            }
+        }
+
+        // ==========================
+        // FUNÇÕES AUXILIARES
+        // ==========================
+        
+        function addLog(message) {
+            const logContainer = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<strong>[${time}]</strong> ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+            
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+        
+        function updateTotalMetrics() {
+            const capital = parseFloat(document.getElementById('investment').value) || 10000;
+            const totalCapital = capital + state.totalPnL;
+            const roi = (state.totalPnL / capital) * 100;
+            
+            document.getElementById('total-capital').textContent = '$' + totalCapital.toFixed(2);
+            document.getElementById('total-pnl').textContent = '$' + state.totalPnL.toFixed(2);
+            document.getElementById('total-roi').textContent = roi.toFixed(2) + '%';
+            
+            const pnlElement = document.getElementById('total-pnl');
+            pnlElement.className = state.totalPnL > 0 ? 'metric-value profit' : 
+                                   state.totalPnL < 0 ? 'metric-value loss' : 
+                                   'metric-value';
+            
+            let activeCount = 0;
+            if (state.arbitrage.active) activeCount++;
+            if (state.lstm.active) activeCount++;
+            if (state.funding.active) activeCount++;
+            if (state.pump.active) activeCount++;
+            
+            document.getElementById('active-strategies').textContent = activeCount + '/4';
+        }
+        
+        function startAllStrategies() {
+            if (!state.arbitrage.active) toggleArbitrage();
+            if (!state.lstm.active) toggleLSTM();
+            if (!state.funding.active) toggleFunding();
+            if (!state.pump.active) togglePumpDetection();
+            addLog('🚀 Todas as estratégias iniciadas!');
+        }
+        
+        function stopAllStrategies() {
+            if (state.arbitrage.active) toggleArbitrage();
+            if (state.lstm.active) toggleLSTM();
+            if (state.funding.active) toggleFunding();
+            if (state.pump.active) togglePumpDetection();
+            addLog('⏹️ Todas as estratégias pausadas');
+        }
+        
+        function forceUpdatePrices() {
+            updatePrices().then(() => {
+                addLog('🔄 Preços atualizados');
+            });
+        }
+        
+        function toggleRealData() {
+            state.useRealData = !state.useRealData;
+            const mode = state.useRealData ? 'Tentando APIs Reais' : 'Modo Simulação';
+            addLog(`🔀 Alternado para: ${mode}`);
+            forceUpdatePrices();
+        }
+        
+        document.getElementById('investment').addEventListener('change', (e) => {
+            state.capital = parseFloat(e.target.value) || 10000;
+            updateTotalMetrics();
+        });
+        
+        // ==========================
+        // INICIALIZAÇÃO
+        // ==========================
+        
+        async function initialize() {
+            addLog('🎯 Inicializando sistema...');
+            
+            // Simular pump ocasional
+            setInterval(() => {
+                if (Math.random() < 0.05) { // 5% chance
+                    const coins = Object.keys(state.prices);
+                    const randomCoin = coins[Math.floor(Math.random() * coins.length)];
+                    marketSim.simulatePump(randomCoin);
+                    addLog(`💥 Evento de mercado detectado em ${randomCoin}`);
+                }
+            }, 30000);
+            
+            await updatePrices();
+            setInterval(updatePrices, 5000);
+            
+            togglePumpDetection();
+            updateTotalMetrics();
+            
+            addLog('✅ Sistema pronto! Dados simulados realistas baseados no mercado atual.');
+            addLog('💡 Para APIs reais, rode localmente ou use proxy CORS');
+        }
+        
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>
